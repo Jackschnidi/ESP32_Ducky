@@ -2,89 +2,143 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
-  <title>DuckyKeyboardESP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>ESP32-S3 Keyboard & Mouse</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
-    <header class="ble-header">
-      <div class="ble-label">BLE</div>
-      <div id="status" class="status" role="status" aria-live="polite">ESP32 wird gesucht...</div>
-      <button id="connectBtn" class="small-button">Verbinden</button>
-      <button id="disconnectBtn" class="small-button" disabled>Trennen</button>
+    <header class="topbar">
+      <div class="brand-icon" aria-hidden="true">⌨</div>
+      <div class="brand">
+        <h1>ESP32-S3 Keyboard & Mouse</h1>
+        <p>BLE → USB HID · Tastatur & Maus</p>
+      </div>
+      <span id="status" class="status disconnected"><span class="dot"></span><span id="statusText">Nicht verbunden</span></span>
     </header>
 
-    <section class="script-area">
-      <label class="sr-only" for="script">Script</label>
-      <textarea id="script" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Hier dein Script eingeben..."></textarea>
+    <section class="connection panel">
+      <div class="section-heading">
+        <div>
+          <h2>Verbindung</h2>
+          <p>Verbinde dich mit deinem ESP32-S3.</p>
+        </div>
+        <span class="bluetooth-icon" aria-hidden="true">ᛒ</span>
+      </div>
+      <div class="connection-actions">
+        <button id="connectBtn" class="button primary">Bluetooth verbinden</button>
+        <button id="disconnectBtn" class="button secondary" disabled>Trennen</button>
+      </div>
+      <p id="connectionHint" class="hint">Benötigt HTTPS und einen Browser mit Web-Bluetooth-Unterstützung, z. B. Chrome auf Android oder Desktop-Chrome.</p>
     </section>
 
-    <section class="controls">
-      <div class="three-buttons">
-        <button id="enterBtn" class="outline-button">ENTER</button>
-        <button id="delayBtn" class="outline-button">DELAY</button>
-        <button id="textBtn" class="outline-button">Text</button>
+
+    <section class="panel touchpad-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Touchpad</h2>
+          <p>Bewege den Mauszeiger mit einem Finger. Klicke mit den Tasten darunter.</p>
+        </div>
+        <span class="editor-badge">MOUSE</span>
       </div>
-      <button id="comboBtn" class="outline-button wide">Tastenkombination einfügen</button>
-      <button id="sendBtn" class="send-button" disabled>SCRIPT SENDEN</button>
-      <div id="progressWrap" class="progress-wrap" hidden>
+      <div id="touchpad" class="touchpad" aria-label="Touchpad: Finger bewegen, um den Mauszeiger zu steuern">
+        <div class="touchpad-mark"><span>☝</span><strong>Hier wischen</strong><small>Bewegung des Mauszeigers</small></div>
+      </div>
+      <div class="mouse-buttons">
+        <button id="leftClick" class="button secondary mouse-button">◉ Linksklick</button>
+        <button id="rightClick" class="button secondary mouse-button">Rechtsklick</button>
+      </div>
+      <div class="mouse-extra">
+        <button id="middleClick" class="text-button">Mittelklick</button>
+        <span>Scrollen: Zwei-Finger-Wischen (Touch) oder Mausrad</span>
+      </div>
+    </section>
+
+    <section class="panel editor-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Skript-Editor</h2>
+          <p>Ein Befehl pro Zeile. Befehle werden in der Reihenfolge ausgeführt.</p>
+        </div>
+        <span class="editor-badge">SCRIPT</span>
+      </div>
+      <label class="sr-only" for="script">Skript</label>
+      <textarea id="script" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="TEXT Hallo Welt&#10;DELAY 500&#10;DOWN CTRL&#10;DOWN C&#10;UP C&#10;UP CTRL">TEXT Hallo Welt</textarea>
+      <div class="editor-footer">
+        <span id="lineCount">1 Zeile</span>
+        <div class="inline-actions">
+          <button id="clearBtn" class="text-button">Leeren</button>
+          <button id="resetBtn" class="text-button danger-text">Tasten freigeben</button>
+        </div>
+      </div>
+      <button id="runBtn" class="button primary run-button" disabled><span aria-hidden="true">▶</span> Skript ausführen</button>
+      <div class="progress-wrap" id="progressWrap" hidden>
         <div class="progress-track"><div id="progressBar"></div></div>
-        <span id="progressText"></span>
+        <p id="progressText" class="hint">Wird gesendet …</p>
       </div>
       <p id="message" class="message" role="status" aria-live="polite"></p>
     </section>
-    <footer>ESP32-S3 Keyboard · BLE</footer>
+
+    <section class="panel tools-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Befehle einfügen</h2>
+          <p>Tippe auf eine Aktion, um sie im Skript zu ergänzen.</p>
+        </div>
+      </div>
+      <div class="tool-grid">
+        <button class="tool-card" id="textBtn"><span class="tool-symbol">T</span><span><strong>Eintippen</strong><small>Text senden</small></span><span class="plus">＋</span></button>
+        <button class="tool-card" id="enterBtn"><span class="tool-symbol">↵</span><span><strong>Enter</strong><small>Zeilenumbruch-Taste</small></span><span class="plus">＋</span></button>
+        <button class="tool-card" id="delayBtn"><span class="tool-symbol">◷</span><span><strong>Verzögerung</strong><small>Wartezeit einfügen</small></span><span class="plus">＋</span></button>
+        <button class="tool-card" id="comboBtn"><span class="tool-symbol">⌘</span><span><strong>Tastenkombination</strong><small>Zum Beispiel CTRL + C</small></span><span class="plus">＋</span></button>
+      </div>
+    </section>
+
+    <section class="panel protocol-panel">
+      <h2>Unterstützte Befehle</h2>
+      <div class="protocol-list">
+        <div><code>TEXT Hallo</code><span>Text tippen</span></div>
+        <div><code>DOWN CTRL</code><span>Taste drücken</span></div>
+        <div><code>UP CTRL</code><span>Taste loslassen</span></div>
+        <div><code>DELAY 500</code><span>500 ms warten</span></div>
+        <div><code>RESET</code><span>Alle Tasten freigeben</span></div>
+      </div>
+    </section>
+    <footer>Die Webseite kommuniziert direkt per BLE mit deinem ESP32-S3. Für die USB-Tastatureingabe muss der ESP32 zusätzlich per USB mit dem Zielgerät verbunden sein.</footer>
   </main>
 
   <dialog id="textDialog">
     <form method="dialog" id="textForm">
-      <h2>Text</h2>
-      <p>Gib den normalen Text ein:</p>
-      <label class="sr-only" for="textValue">Text</label>
-      <textarea id="textValue" rows="5" placeholder="Text"></textarea>
-      <div class="dialog-actions">
-        <button type="button" class="outline-button" data-close="textDialog">Abbrechen</button>
-        <button type="button" id="insertTextBtn" class="dialog-primary">Einfügen</button>
-      </div>
+      <div class="dialog-heading"><h2>Text einfügen</h2><button class="close-button" value="cancel" aria-label="Schließen">×</button></div>
+      <label for="textValue">Text, der getippt werden soll</label>
+      <textarea id="textValue" rows="4" placeholder="Hallo Welt"></textarea>
+      <p class="hint">Mehrere Zeilen werden als Textbefehle mit Enter dazwischen eingefügt.</p>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" id="insertTextConfirm" value="default">Einfügen</button></div>
     </form>
   </dialog>
 
   <dialog id="delayDialog">
     <form method="dialog" id="delayForm">
-      <h2>Delay einfügen</h2>
-      <p>Zeit in Millisekunden:</p>
-      <label class="sr-only" for="delayValue">Millisekunden</label>
-      <input id="delayValue" type="number" min="1" step="1" value="1000">
-      <small>Beispiel: 1000 = 1 Sekunde</small>
-      <div class="dialog-actions">
-        <button type="button" class="outline-button" data-close="delayDialog">Abbrechen</button>
-        <button type="button" id="insertDelayBtn" class="dialog-primary">Einfügen</button>
-      </div>
+      <div class="dialog-heading"><h2>Verzögerung einfügen</h2><button class="close-button" value="cancel" aria-label="Schließen">×</button></div>
+      <label for="delayValue">Dauer in Millisekunden</label>
+      <input id="delayValue" type="number" min="1" max="60000" value="500" required>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" id="insertDelayConfirm" value="default">Einfügen</button></div>
     </form>
   </dialog>
 
   <dialog id="comboDialog">
     <form method="dialog" id="comboForm">
-      <h2>Tastenkombination</h2>
-      <p>Modifier:</p>
-      <div class="modifier-list">
-        <label><input type="checkbox" id="modCtrl"> CTRL</label>
-        <label><input type="checkbox" id="modAlt"> ALT</label>
-        <label><input type="checkbox" id="modShift"> SHIFT</label>
-        <label><input type="checkbox" id="modWin"> WIN</label>
-      </div>
-      <label for="selectedKey">Taste:</label>
-      <select id="selectedKey"></select>
-      <p id="comboPreview" class="preview">Kombination: A</p>
-      <div class="dialog-actions">
-        <button type="button" class="outline-button" data-close="comboDialog">Abbrechen</button>
-        <button type="button" id="insertComboBtn" class="dialog-primary">Einfügen</button>
-      </div>
+      <div class="dialog-heading"><h2>Tastenkombination</h2><button class="close-button" value="cancel" aria-label="Schließen">×</button></div>
+      <label for="modifier">Modifikatortaste</label>
+      <select id="modifier"><option>CTRL</option><option>SHIFT</option><option>ALT</option><option>GUI</option></select>
+      <label for="comboKey">Zweite Taste</label>
+      <select id="comboKey">
+        <option>C</option><option>V</option><option>X</option><option>A</option><option>Z</option><option>S</option><option>F</option><option>ENTER</option><option>TAB</option><option>ESC</option><option>DELETE</option><option>F1</option><option>F2</option><option>F3</option><option>F4</option><option>F5</option><option>F6</option><option>F7</option><option>F8</option><option>F9</option><option>F10</option><option>F11</option><option>F12</option><option>LEFT</option><option>RIGHT</option><option>UP</option><option>DOWN</option>
+      </select>
+      <div class="dialog-actions"><button class="button secondary" value="cancel">Abbrechen</button><button class="button primary" id="insertComboConfirm" value="default">Einfügen</button></div>
     </form>
   </dialog>
-
   <script src="app.js"></script>
 </body>
 </html>
