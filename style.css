@@ -41,3 +41,10 @@ dialog small { color: #666; font-size: 12px; margin-top: -6px; }
 .preview { padding-top: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (min-width: 700px) { .app { padding: 12px; } .script-area, #script { min-height: 360px; } }
+
+/* --- Touchpad / Maus (Fullprojekt) im Stil der Web-UI --- */
+.touchpad-area { display: grid; gap: 8px; padding: 4px 0 10px; }
+.touchpad { min-height: 170px; display: flex; align-items: center; justify-content: center; border: 1px solid #bdbdbd; border-radius: 4px; background: #f6f5fa; color: #5f6368; font-size: 13px; user-select: none; -webkit-user-select: none; touch-action: none; cursor: crosshair; }
+.touchpad.touching { border-color: #6750a4; box-shadow: 0 0 0 1px #6750a4; background: #efeaf8; }
+.mouse-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+@media (min-width: 700px) { .touchpad { min-height: 220px; } .script-area, #script { min-height: 240px; } }

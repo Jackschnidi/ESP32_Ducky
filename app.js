@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const ESP32_NAME = "ESP32-S3 Keyboard";
   const SERVICE_UUID = "7c7e0001-5e4d-4f8a-9b01-123456789001";
   const CHARACTERISTIC_UUID = "7c7e0002-5e4d-4f8a-9b01-123456789001";
   const BLE_CHUNK_SIZE = 20;
@@ -13,6 +12,7 @@
   let connected = false;
   let sending = false;
 
+  // Tastenliste für die Tastenkombination (identisch zur GitHub-Pages-Version)
   const keyList = [
     "A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
     "0","1","2","3","4","5","6","7","8","9","ENTER","TAB","SPACE","BACK","ESC","LEFT","RIGHT","UP","DOWN",
@@ -69,6 +69,8 @@
     else showMessage("Bitte einen aktuellen Browser verwenden.", "error");
   }
 
+  /* ---------------- Verbindung ---------------- */
+
   async function connect() {
     if (!navigator.bluetooth) {
       setStatus("Web Bluetooth nicht verfügbar");
@@ -79,9 +81,11 @@
     try {
       connectBtn.disabled = true;
       setStatus("ESP32 wird gesucht...");
-      showMessage("Wähle im Bluetooth-Dialog „ESP32-S3 Keyboard“ aus.");
+      showMessage("Wähle im Bluetooth-Dialog deinen ESP32 aus.");
+      // Filter über die Service-UUID: zeigt nur ESP32-Geräte mit diesem Sketch,
+      // egal wie der Bluetooth-Name (BLE_DEVICE_NAME) lautet.
       device = await navigator.bluetooth.requestDevice({
-        filters: [{ name: ESP32_NAME }],
+        filters: [{ services: [SERVICE_UUID] }],
         optionalServices: [SERVICE_UUID]
       });
       device.addEventListener("gattserverdisconnected", onDisconnected);
@@ -90,10 +94,11 @@
       const service = await server.getPrimaryService(SERVICE_UUID);
       characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
       setConnected(true);
-      setStatus("ESP32 bereit");
+      setStatus("ESP32 bereit: " + (device.name || "Bluetooth-Gerät"));
       showMessage("Bluetooth-Verbindung hergestellt.", "success");
     } catch (error) {
       characteristic = null;
+      if (device?.gatt?.connected) device.gatt.disconnect();
       setConnected(false);
       if (error?.name === "NotFoundError") {
         setStatus("ESP32 wird gesucht...");
@@ -113,6 +118,7 @@
   }
 
   function disconnect() {
+    if (characteristic) sendMouse("MOUSE RESET");
     if (device?.gatt?.connected) device.gatt.disconnect();
     characteristic = null;
     setConnected(false);
@@ -120,29 +126,34 @@
     showMessage("Verbindung getrennt.");
   }
 
-  async function writeChunk(bytes) {
-    if (!characteristic) throw new Error("Keine BLE-Verbindung.");
-    if (typeof characteristic.writeValueWithoutResponse === "function") {
-      await characteristic.writeValueWithoutResponse(bytes);
-    } else {
-      await characteristic.writeValue(bytes);
+  /* ---------------- Senden ---------------- */
+
+  async function writePayload(payload) {
+    if (!characteristic) throw new Error("Keine Bluetooth-Verbindung.");
+    const bytes = new TextEncoder().encode(payload);
+    for (let offset = 0; offset < bytes.length; offset += BLE_CHUNK_SIZE) {
+      if (!characteristic) throw new Error("Bluetooth-Verbindung wurde getrennt.");
+      const chunk = bytes.slice(offset, Math.min(offset + BLE_CHUNK_SIZE, bytes.length));
+      if (typeof characteristic.writeValueWithoutResponse === "function") {
+        await characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await characteristic.writeValue(chunk);
+      }
+      if (offset + BLE_CHUNK_SIZE < bytes.length) await sleep(BLE_CHUNK_DELAY_MS);
     }
   }
 
-  // Match the Android app: append one final newline, encode UTF-8, send 20-byte
-  // chunks, and wait 60 ms between chunks. This keeps command lines in the same
-  // BLE stream so DELAY commands control timing on the ESP32 itself.
+  function normalizeScript(raw) {
+    return raw.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
+  }
+
   async function sendScript() {
     if (!connected || !characteristic || sending) return;
-    const text = scriptEl.value;
-    if (!text.trim()) {
+    const commands = normalizeScript(scriptEl.value);
+    if (!commands.length) {
       showMessage("Bitte zuerst ein Script eingeben.", "error");
       return;
     }
-
-    const fullText = text.endsWith("\n") ? text : text + "\n";
-    const bytes = new TextEncoder().encode(fullText);
-    const totalChunks = Math.ceil(bytes.length / BLE_CHUNK_SIZE);
 
     sending = true;
     sendBtn.disabled = true;
@@ -152,13 +163,11 @@
     showMessage("");
 
     try {
-      for (let offset = 0, index = 0; offset < bytes.length; offset += BLE_CHUNK_SIZE, index++) {
-        if (!characteristic) throw new Error("Bluetooth-Verbindung wurde getrennt.");
-        const chunk = bytes.slice(offset, Math.min(offset + BLE_CHUNK_SIZE, bytes.length));
-        await writeChunk(chunk);
-        $("progressBar").style.width = `${Math.round(((index + 1) / totalChunks) * 100)}%`;
-        $("progressText").textContent = `Paket ${index + 1} von ${totalChunks}`;
-        if (offset + BLE_CHUNK_SIZE < bytes.length) await sleep(BLE_CHUNK_DELAY_MS);
+      for (let i = 0; i < commands.length; i++) {
+        $("progressText").textContent = `Befehl ${i + 1} von ${commands.length}: ${commands[i]}`;
+        await writePayload(commands[i] + "\n");
+        $("progressBar").style.width = `${Math.round(((i + 1) / commands.length) * 100)}%`;
+        await sleep(BLE_CHUNK_DELAY_MS);
       }
       setStatus("ESP32 bereit");
       showMessage("Script wurde an den ESP32 gesendet.", "success");
@@ -166,11 +175,76 @@
     } catch (error) {
       setStatus("Fehler beim Senden");
       showMessage("Fehler beim Senden: " + (error?.message || error), "error");
+      if (device?.gatt && !device.gatt.connected) onDisconnected();
     } finally {
       sending = false;
       sendBtn.disabled = !connected;
     }
   }
+
+  /* ---------------- Touchpad / Maus ---------------- */
+
+  let mouseQueue = Promise.resolve();
+  function sendMouse(command) {
+    if (!characteristic) return;
+    mouseQueue = mouseQueue.then(() => writePayload(command + "\n")).catch(error => {
+      showMessage("Maus-Befehl fehlgeschlagen: " + (error?.message || error), "error");
+    });
+  }
+
+  const touchpad = $("touchpad");
+  let pointerActive = false;
+  let lastX = 0, lastY = 0;
+  let moveDX = 0, moveDY = 0, moveTimer = null;
+
+  function flushMouseMove() {
+    moveTimer = null;
+    if (!characteristic || (!moveDX && !moveDY)) { moveDX = 0; moveDY = 0; return; }
+    const dx = Math.max(-127, Math.min(127, Math.round(moveDX)));
+    const dy = Math.max(-127, Math.min(127, Math.round(moveDY)));
+    moveDX -= dx; moveDY -= dy;
+    sendMouse(`MOUSE MOVE ${dx} ${dy}`);
+    if (moveDX || moveDY) moveTimer = setTimeout(flushMouseMove, 65);
+  }
+  function queueMouseDelta(dx, dy) {
+    moveDX += dx * 1.35;
+    moveDY += dy * 1.35;
+    if (!moveTimer) moveTimer = setTimeout(flushMouseMove, 18);
+  }
+  touchpad.addEventListener("pointerdown", event => {
+    if (!characteristic) { showMessage("Verbinde zuerst den ESP32, um das Touchpad zu verwenden.", "error"); return; }
+    pointerActive = true; lastX = event.clientX; lastY = event.clientY;
+    try { touchpad.setPointerCapture(event.pointerId); } catch (_) {}
+    touchpad.classList.add("touching");
+    event.preventDefault();
+  });
+  touchpad.addEventListener("pointermove", event => {
+    if (!pointerActive) return;
+    const dx = event.clientX - lastX, dy = event.clientY - lastY;
+    lastX = event.clientX; lastY = event.clientY;
+    if (event.pointerType === "touch" && event.isPrimary === false) return;
+    queueMouseDelta(dx, dy);
+    event.preventDefault();
+  });
+  function endPointer(event) {
+    pointerActive = false; touchpad.classList.remove("touching");
+    if (moveTimer) { clearTimeout(moveTimer); moveTimer = null; }
+    flushMouseMove();
+    try { if (touchpad.hasPointerCapture(event.pointerId)) touchpad.releasePointerCapture(event.pointerId); } catch (_) {}
+  }
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => touchpad.addEventListener(type, endPointer));
+  touchpad.addEventListener("wheel", event => {
+    if (!characteristic) return;
+    const amount = Math.max(-127, Math.min(127, Math.round(event.deltaY / 12)));
+    if (amount) sendMouse("MOUSE SCROLL " + amount);
+    event.preventDefault();
+  }, { passive: false });
+
+  $("leftClick").addEventListener("click", () => sendMouse("MOUSE CLICK LEFT"));
+  $("middleClick").addEventListener("click", () => sendMouse("MOUSE CLICK MIDDLE"));
+  $("rightClick").addEventListener("click", () => sendMouse("MOUSE CLICK RIGHT"));
+
+  /* ---------------- Buttons / Dialoge ---------------- */
 
   $("enterBtn").addEventListener("click", () => insertAtCursor("DOWN ENTER\nUP ENTER"));
   $("delayBtn").addEventListener("click", () => openDialog("delayDialog"));
@@ -184,12 +258,18 @@
   sendBtn.addEventListener("click", sendScript);
 
   $("insertTextBtn").addEventListener("click", () => {
-    const text = $("textValue").value;
-    if (text.length > 0) {
-      // Mirrors Android app behavior: insert the whole text after the TEXT prefix.
-      insertAtCursor("TEXT " + text);
-      $("textDialog").close();
-    }
+    const value = $("textValue").value.replace(/\r/g, "");
+    if (!value) return;
+    // Mehrzeiliger Text: je Zeile ein TEXT-Befehl, dazwischen ENTER
+    const lines = value.split("\n");
+    const commands = [];
+    lines.forEach((line, index) => {
+      if (line.length) commands.push("TEXT " + line);
+      if (index < lines.length - 1) commands.push("DOWN ENTER\nUP ENTER");
+    });
+    insertAtCursor(commands.join("\n"));
+    $("textDialog").close();
+    $("textValue").value = "";
   });
 
   $("insertDelayBtn").addEventListener("click", () => {
@@ -205,6 +285,8 @@
   document.querySelectorAll("[data-close]").forEach(button => {
     button.addEventListener("click", () => $(button.dataset.close).close());
   });
+
+  /* ---------------- Tastenkombination (Tasten wie GitHub Pages) ---------------- */
 
   const selectedKey = $("selectedKey");
   keyList.forEach(key => {

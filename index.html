@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>DuckyKeyboardESP</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <main class="app">
@@ -15,6 +15,17 @@
       <button id="connectBtn" class="small-button">Verbinden</button>
       <button id="disconnectBtn" class="small-button" disabled>Trennen</button>
     </header>
+
+    <section class="touchpad-area">
+      <div id="touchpad" class="touchpad" aria-label="Touchpad: Finger bewegen, um den Mauszeiger zu steuern">
+        <span>Touchpad – hier wischen</span>
+      </div>
+      <div class="mouse-buttons">
+        <button id="leftClick" class="outline-button">Linksklick</button>
+        <button id="middleClick" class="outline-button">Mittelklick</button>
+        <button id="rightClick" class="outline-button">Rechtsklick</button>
+      </div>
+    </section>
 
     <section class="script-area">
       <label class="sr-only" for="script">Script</label>
@@ -35,7 +46,7 @@
       </div>
       <p id="message" class="message" role="status" aria-live="polite"></p>
     </section>
-    <footer>ESP32-S3 Keyboard · BLE</footer>
+    <footer>ESP32-S3 Keyboard · BLE · Web v4</footer>
   </main>
 
   <dialog id="textDialog">
@@ -85,6 +96,6 @@
     </form>
   </dialog>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
