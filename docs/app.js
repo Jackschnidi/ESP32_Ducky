@@ -332,6 +332,112 @@
     $("comboDialog").close();
   });
 
+  /* ---------------- Mausklick an Koordinaten ---------------- */
+
+  const clickArea = $("clickArea");
+  const clickMarker = $("clickMarker");
+  const screenW = $("screenW"), screenH = $("screenH");
+  const clickX = $("clickX"), clickY = $("clickY");
+  let clickPos = null; // {x, y} in Bildschirm-Pixeln
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("screenRes") || "null");
+    if (saved?.w >= 100 && saved?.h >= 100) { screenW.value = saved.w; screenH.value = saved.h; }
+  } catch (_) {}
+
+  function getRes() {
+    const w = Math.max(100, Math.round(Number(screenW.value)) || 1920);
+    const h = Math.max(100, Math.round(Number(screenH.value)) || 1080);
+    return { w, h };
+  }
+
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+  function renderClick() {
+    const { w, h } = getRes();
+    clickArea.style.aspectRatio = `${w} / ${h}`;
+    if (!clickPos) {
+      clickMarker.style.display = "none";
+      $("clickPreview").textContent = "Noch keine Position gewählt.";
+      return;
+    }
+    clickPos.x = clamp(clickPos.x, 0, w - 1);
+    clickPos.y = clamp(clickPos.y, 0, h - 1);
+    clickMarker.style.display = "block";
+    clickMarker.style.left = (clickPos.x / (w - 1)) * 100 + "%";
+    clickMarker.style.top = (clickPos.y / (h - 1)) * 100 + "%";
+    clickX.value = clickPos.x;
+    clickY.value = clickPos.y;
+    const names = { LEFT: "Linksklick", RIGHT: "Rechtsklick", MIDDLE: "Mittelklick" };
+    const doubleNames = { LEFT: "Links-Doppelklick", RIGHT: "Rechts-Doppelklick", MIDDLE: "Mittel-Doppelklick" };
+    const label = ($("clickDouble").checked ? doubleNames : names)[$("clickButton").value];
+    $("clickPreview").textContent = `${label} bei X ${clickPos.x}, Y ${clickPos.y}`;
+  }
+
+  function setPosFromPointer(event) {
+    const rect = clickArea.getBoundingClientRect();
+    const { w, h } = getRes();
+    const fx = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    const fy = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+    clickPos = { x: Math.round(fx * (w - 1)), y: Math.round(fy * (h - 1)) };
+    renderClick();
+  }
+
+  let areaActive = false;
+  clickArea.addEventListener("pointerdown", event => {
+    areaActive = true;
+    try { clickArea.setPointerCapture(event.pointerId); } catch (_) {}
+    setPosFromPointer(event);
+    event.preventDefault();
+  });
+  clickArea.addEventListener("pointermove", event => { if (areaActive) setPosFromPointer(event); });
+  ["pointerup", "pointercancel"].forEach(type => clickArea.addEventListener(type, () => { areaActive = false; }));
+
+  // Zahlenfelder: sobald X und Y vorhanden sind, wird die Position übernommen
+  function onXYInput() {
+    if (clickX.value === "" || clickY.value === "") return;
+    clickPos = { x: Math.round(Number(clickX.value)) || 0, y: Math.round(Number(clickY.value)) || 0 };
+    const { w, h } = getRes();
+    const clampedX = clamp(clickPos.x, 0, w - 1), clampedY = clamp(clickPos.y, 0, h - 1);
+    clickPos = { x: clampedX, y: clampedY };
+    // Eingabefelder beim Tippen nicht überschreiben – nur Marker und Vorschau aktualisieren
+    const keepX = clickX.value, keepY = clickY.value;
+    renderClick();
+    clickX.value = keepX; clickY.value = keepY;
+  }
+  clickX.addEventListener("input", onXYInput);
+  clickY.addEventListener("input", onXYInput);
+  clickX.addEventListener("change", renderClick);
+  clickY.addEventListener("change", renderClick);
+
+  [screenW, screenH].forEach(input => input.addEventListener("change", () => {
+    const { w, h } = getRes();
+    screenW.value = w; screenH.value = h;
+    try { localStorage.setItem("screenRes", JSON.stringify({ w, h })); } catch (_) {}
+    renderClick();
+  }));
+  $("clickButton").addEventListener("change", renderClick);
+  $("clickDouble").addEventListener("change", renderClick);
+
+  $("clickBtn").addEventListener("click", () => {
+    renderClick();
+    openDialog("clickDialog");
+  });
+
+  $("insertClickBtn").addEventListener("click", () => {
+    if (!clickPos) {
+      $("clickPreview").textContent = "Bitte zuerst ins Rechteck tippen oder X und Y eingeben.";
+      return;
+    }
+    const { w, h } = getRes();
+    const button = $("clickButton").value;
+    const lines = [`MOUSE GOTO ${clickPos.x} ${clickPos.y} ${w} ${h}`, `MOUSE CLICK ${button}`];
+    if ($("clickDouble").checked) lines.push("DELAY 60", `MOUSE CLICK ${button}`);
+    insertAtCursor(lines.join("\n"));
+    $("clickDialog").close();
+  });
+
+
   window.addEventListener("beforeunload", () => {
     if (device?.gatt?.connected) device.gatt.disconnect();
   });

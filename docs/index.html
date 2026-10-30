@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>DuckyKeyboardESP</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <main class="app">
@@ -38,7 +38,10 @@
         <button id="delayBtn" class="outline-button">DELAY</button>
         <button id="textBtn" class="outline-button">Text</button>
       </div>
-      <button id="comboBtn" class="outline-button wide">Tastenkombination einfügen</button>
+      <div class="two-buttons">
+        <button id="comboBtn" class="outline-button">Tastenkombination</button>
+        <button id="clickBtn" class="outline-button">Mausklick</button>
+      </div>
       <label class="loop-option"><input type="checkbox" id="loopCheck"> Endlos wiederholen (bis der ESP ausgesteckt wird)</label>
       <button id="sendBtn" class="send-button" disabled>SCRIPT SENDEN</button>
       <div id="progressWrap" class="progress-wrap" hidden>
@@ -47,7 +50,7 @@
       </div>
       <p id="message" class="message" role="status" aria-live="polite"></p>
     </section>
-    <footer>ESP32-S3 Keyboard · BLE · Web v5</footer>
+    <footer>ESP32-S3 Keyboard · BLE · Web v6</footer>
   </main>
 
   <dialog id="textDialog">
@@ -97,6 +100,42 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=5"></script>
+  <dialog id="clickDialog">
+    <form method="dialog" id="clickForm">
+      <h2>Mausklick</h2>
+      <p>Tippe ins Rechteck <strong>oder</strong> gib die Koordinaten ein:</p>
+      <div class="res-row">
+        <label for="screenW">Bildschirm</label>
+        <input id="screenW" type="number" min="100" step="1" value="1920" inputmode="numeric">
+        <span>×</span>
+        <input id="screenH" type="number" min="100" step="1" value="1080" inputmode="numeric" aria-label="Höhe in Pixel">
+        <span>px</span>
+      </div>
+      <div id="clickArea" class="click-area" aria-label="Bildschirm-Vorschau: tippen, um die Klickposition zu wählen">
+        <div id="clickMarker" class="click-marker"></div>
+      </div>
+      <div class="xy-row">
+        <label>X <input id="clickX" type="number" min="0" step="1" inputmode="numeric"></label>
+        <label>Y <input id="clickY" type="number" min="0" step="1" inputmode="numeric"></label>
+      </div>
+      <div class="xy-row">
+        <label>Taste
+          <select id="clickButton">
+            <option value="LEFT">Links</option>
+            <option value="RIGHT">Rechts</option>
+            <option value="MIDDLE">Mitte</option>
+          </select>
+        </label>
+        <label class="inline-check"><input type="checkbox" id="clickDouble"> Doppelklick</label>
+      </div>
+      <p id="clickPreview" class="preview"></p>
+      <div class="dialog-actions">
+        <button type="button" class="outline-button" data-close="clickDialog">Abbrechen</button>
+        <button type="button" id="insertClickBtn" class="dialog-primary">Einfügen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js?v=6"></script>
 </body>
 </html>
