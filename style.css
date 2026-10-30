@@ -48,3 +48,6 @@ dialog small { color: #666; font-size: 12px; margin-top: -6px; }
 .touchpad.touching { border-color: #6750a4; box-shadow: 0 0 0 1px #6750a4; background: #efeaf8; }
 .mouse-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 @media (min-width: 700px) { .touchpad { min-height: 220px; } .script-area, #script { min-height: 240px; } }
+
+.loop-option { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #202124; }
+.loop-option input { accent-color: #6750a4; width: 18px; height: 18px; }

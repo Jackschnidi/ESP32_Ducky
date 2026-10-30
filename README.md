@@ -17,3 +17,8 @@ Settings → Pages → Deploy from a branch → `main` → `/(root)`. Web Blueto
 ## Schweizer Tastatur
 Der Sketch sendet Text für ein Windows-System mit Layout „Deutsch (Schweiz)“ (QWERTZ), inkl. ä ö ü é è à ç € § ° @ # \ | ~ ^ ` { } [ ].
 Bei DOWN/UP-Befehlen sind Y und Z vertauscht, damit z. B. CTRL+Z auf der Taste „Z“ des Schweizer Layouts landet. Zusätzlich gibt es `ALTGR`.
+
+## Loop (Endlosschleife)
+Checkbox „Endlos wiederholen“ aktivieren und Script senden: Der ESP32 speichert die Befehle (max. 500) und wiederholt sie endlos,
+auch ohne Bluetooth-Verbindung, bis er ausgesteckt wird. Protokoll: `LOOP START` … Befehle … `LOOP END`.
+Mit der Zeile `LOOP STOP` (als Script senden) lässt sich die Schleife anhalten. Tipp: ein `DELAY` im Script setzen, sonst läuft es mit voller Geschwindigkeit.

@@ -149,11 +149,14 @@
 
   async function sendScript() {
     if (!connected || !characteristic || sending) return;
-    const commands = normalizeScript(scriptEl.value);
+    let commands = normalizeScript(scriptEl.value);
     if (!commands.length) {
       showMessage("Bitte zuerst ein Script eingeben.", "error");
       return;
     }
+    const loopMode = $("loopCheck").checked;
+    // Loop: der ESP32 zeichnet die Befehle auf und wiederholt sie endlos
+    if (loopMode) commands = ["LOOP START", ...commands, "LOOP END"];
 
     sending = true;
     sendBtn.disabled = true;
@@ -170,7 +173,9 @@
         await sleep(BLE_CHUNK_DELAY_MS);
       }
       setStatus("ESP32 bereit");
-      showMessage("Script wurde an den ESP32 gesendet.", "success");
+      showMessage(loopMode
+        ? "Loop gestartet – läuft, bis der ESP32 ausgesteckt wird."
+        : "Script wurde an den ESP32 gesendet.", "success");
       $("progressText").textContent = "Übertragung abgeschlossen.";
     } catch (error) {
       setStatus("Fehler beim Senden");
