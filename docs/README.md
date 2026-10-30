@@ -22,6 +22,13 @@ Checkbox „Endlos wiederholen“ aktivieren und Script senden: Der ESP32 speich
 auch ohne Bluetooth-Verbindung, bis er ausgesteckt wird. Protokoll: `LOOP START` … Befehle … `LOOP END`.
 Mit der Zeile `LOOP STOP` (als Script senden) lässt sich die Schleife anhalten. Tipp: ein `DELAY` im Script setzen, sonst läuft es mit voller Geschwindigkeit.
 
+## Schleife nur für einen Teil des Scripts
+Button „Schleife“ neben „Mausklick“. Im Dialog „Schleife Anfang einfügen“ und „Schleife Ende einfügen“ (an der Cursor-Position im Script).
+Es gibt nur **eine** Schleife pro Script. Befehle vor dem Anfang laufen einmal, der Teil zwischen Anfang und Ende wird endlos wiederholt.
+Hinter „Schleife Ende“ darf nichts mehr stehen (würde nie ausgeführt). „Schleife entfernen“ löscht beide Marken.
+Im Script erscheinen die Zeilen `LOOP START` und `LOOP END` (vom Sketch bereits unterstützt, kein neues Flashen nötig).
+Die Checkbox „Endlos wiederholen“ (ganzes Script) wird deaktiviert, solange Marken im Script stehen.
+
 ## Mausklick an Koordinaten
 Button „Mausklick“ neben „Tastenkombination“. Im Dialog entweder ins Rechteck (Abbild des Bildschirms) tippen **oder** X/Y eintippen
 (beides ist synchron). Die Bildschirmauflösung (Standard 1920×1080) wird im Browser gemerkt. Taste: Links/Rechts/Mitte, optional Doppelklick.

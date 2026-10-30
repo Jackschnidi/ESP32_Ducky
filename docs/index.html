@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
   <title>DuckyKeyboardESP</title>
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <main class="app">
@@ -38,9 +38,10 @@
         <button id="delayBtn" class="outline-button">DELAY</button>
         <button id="textBtn" class="outline-button">Text</button>
       </div>
-      <div class="two-buttons">
+      <div class="action-buttons">
         <button id="comboBtn" class="outline-button">Tastenkombination</button>
         <button id="clickBtn" class="outline-button">Mausklick</button>
+        <button id="loopBtn" class="outline-button">Schleife</button>
       </div>
       <label class="loop-option"><input type="checkbox" id="loopCheck"> Endlos wiederholen (bis der ESP ausgesteckt wird)</label>
       <button id="sendBtn" class="send-button" disabled>SCRIPT SENDEN</button>
@@ -50,7 +51,7 @@
       </div>
       <p id="message" class="message" role="status" aria-live="polite"></p>
     </section>
-    <footer>ESP32-S3 Keyboard · BLE · Web v6</footer>
+    <footer>ESP32-S3 Keyboard · BLE · Web v7</footer>
   </main>
 
   <dialog id="textDialog">
@@ -136,6 +137,23 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=6"></script>
+  <dialog id="loopDialog">
+    <form method="dialog" id="loopForm">
+      <h2>Schleife</h2>
+      <p>Nur der Teil zwischen <strong>Schleife Anfang</strong> und <strong>Schleife Ende</strong> wird endlos wiederholt. Was davor steht, läuft einmal. Es gibt nur eine Schleife pro Script.</p>
+      <p id="loopStatus" class="preview"></p>
+      <div class="loop-actions">
+        <button type="button" id="loopStartBtn" class="outline-button">Schleife Anfang einfügen</button>
+        <button type="button" id="loopEndBtn" class="outline-button">Schleife Ende einfügen</button>
+        <button type="button" id="loopRemoveBtn" class="outline-button">Schleife entfernen</button>
+      </div>
+      <small>Der Cursor im Script bestimmt, wo die Marke eingefügt wird. Nach „Schleife Ende“ wird nichts mehr ausgeführt, weil die Schleife endlos läuft.</small>
+      <div class="dialog-actions">
+        <button type="button" class="outline-button" data-close="loopDialog">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js?v=7"></script>
 </body>
 </html>

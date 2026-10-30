@@ -46,7 +46,7 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  function insertAtCursor(text) {
+  function buildInsertion(text) {
     const currentText = scriptEl.value;
     const start = scriptEl.selectionStart;
     const end = scriptEl.selectionEnd;
@@ -57,10 +57,15 @@
     if (before.length > 0 && !before.endsWith("\n")) insertion = "\n" + insertion;
     if (after.length > 0 && !after.startsWith("\n")) insertion += "\n";
 
-    scriptEl.value = before + insertion + after;
-    const cursor = before.length + insertion.length;
+    return { value: before + insertion + after, cursor: before.length + insertion.length };
+  }
+
+  function insertAtCursor(text) {
+    const result = buildInsertion(text);
+    scriptEl.value = result.value;
     scriptEl.focus();
-    scriptEl.setSelectionRange(cursor, cursor);
+    scriptEl.setSelectionRange(result.cursor, result.cursor);
+    updateLoopUI();
   }
 
   function openDialog(id) {
@@ -154,9 +159,17 @@
       showMessage("Bitte zuerst ein Script eingeben.", "error");
       return;
     }
-    const loopMode = $("loopCheck").checked;
-    // Loop: der ESP32 zeichnet die Befehle auf und wiederholt sie endlos
+    const loopInfo = analyzeLoop(commands);
+    if (loopInfo.error) {
+      showMessage(loopInfo.error, "error");
+      return;
+    }
+    const partialLoop = loopInfo.start >= 0;
+    const loopMode = $("loopCheck").checked && !partialLoop;
+    // Ganzes Script als Loop: der ESP32 zeichnet die Befehle auf und wiederholt sie endlos
     if (loopMode) commands = ["LOOP START", ...commands, "LOOP END"];
+    // Teil-Loop: Marken sind schon im Script (LOOP START ... LOOP END), canonical schreiben
+    if (partialLoop) commands = commands.map(c => isLoopStart(c) ? "LOOP START" : isLoopEnd(c) ? "LOOP END" : c);
 
     sending = true;
     sendBtn.disabled = true;
@@ -173,9 +186,11 @@
         await sleep(BLE_CHUNK_DELAY_MS);
       }
       setStatus("ESP32 bereit");
-      showMessage(loopMode
-        ? "Loop gestartet – läuft, bis der ESP32 ausgesteckt wird."
-        : "Script wurde an den ESP32 gesendet.", "success");
+      showMessage(partialLoop
+        ? "Schleife gestartet – der Teil dazwischen läuft endlos, bis der ESP32 ausgesteckt wird."
+        : loopMode
+          ? "Loop gestartet – läuft, bis der ESP32 ausgesteckt wird."
+          : "Script wurde an den ESP32 gesendet.", "success");
       $("progressText").textContent = "Übertragung abgeschlossen.";
     } catch (error) {
       setStatus("Fehler beim Senden");
@@ -186,6 +201,92 @@
       sendBtn.disabled = !connected;
     }
   }
+
+  /* ---------------- Schleife (nur ein Teil des Scripts) ---------------- */
+
+  const LOOP_MAX_COMMANDS = 500; // wie im Sketch
+  const isLoopStart = line => /^LOOP\s+START$/i.test(line.trim());
+  const isLoopEnd = line => /^LOOP\s+END$/i.test(line.trim());
+
+  // Prüft die Schleifen-Marken in einer Zeilenliste (bereits getrimmt/ohne Leerzeilen)
+  function analyzeLoop(lines) {
+    const starts = [], ends = [];
+    lines.forEach((line, i) => {
+      if (isLoopStart(line)) starts.push(i);
+      else if (isLoopEnd(line)) ends.push(i);
+    });
+    const info = { start: starts.length ? starts[0] : -1, end: ends.length ? ends[0] : -1, error: "" };
+    if (!starts.length && !ends.length) return info;
+    if (starts.length > 1 || ends.length > 1) info.error = "Es kann nur eine Schleife geben (je ein Anfang und ein Ende).";
+    else if (!starts.length) info.error = "„Schleife Ende“ ohne „Schleife Anfang“.";
+    else if (!ends.length) info.error = "„Schleife Anfang“ ohne „Schleife Ende“.";
+    else if (ends[0] < starts[0]) info.error = "„Schleife Ende“ steht vor „Schleife Anfang“.";
+    else if (ends[0] < lines.length - 1) info.error = "Nach „Schleife Ende“ stehen noch Befehle. Die Schleife läuft endlos, diese würden nie ausgeführt – bitte entfernen oder vor das Ende verschieben.";
+    else if (ends[0] - starts[0] - 1 > LOOP_MAX_COMMANDS) info.error = `Die Schleife hat zu viele Befehle (max. ${LOOP_MAX_COMMANDS}).`;
+    else if (ends[0] - starts[0] - 1 < 1) info.error = "Zwischen Anfang und Ende der Schleife steht kein Befehl.";
+    return info;
+  }
+
+  function currentLoopInfo() {
+    return analyzeLoop(normalizeScript(scriptEl.value));
+  }
+
+  // Checkbox "ganzes Script wiederholen" und Teil-Schleife schließen sich aus (nur eine Schleife)
+  function updateLoopUI() {
+    const lines = normalizeScript(scriptEl.value);
+    const hasMarker = lines.some(l => isLoopStart(l) || isLoopEnd(l));
+    const check = $("loopCheck");
+    if (hasMarker) check.checked = false;
+    check.disabled = hasMarker;
+    check.closest(".loop-option").classList.toggle("disabled", hasMarker);
+    $("loopBtn").classList.toggle("active", hasMarker);
+  }
+
+  function refreshLoopDialog() {
+    const lines = normalizeScript(scriptEl.value);
+    const hasStart = lines.some(isLoopStart);
+    const hasEnd = lines.some(isLoopEnd);
+    const info = analyzeLoop(lines);
+    $("loopStartBtn").disabled = hasStart;
+    $("loopEndBtn").disabled = !hasStart || hasEnd;
+    $("loopRemoveBtn").disabled = !hasStart && !hasEnd;
+    let text;
+    if (!hasStart && !hasEnd) text = "Noch keine Schleife im Script.";
+    else if (info.error) text = info.error;
+    else text = `Schleife aktiv: ${info.end - info.start - 1} Befehl(e) werden wiederholt.`;
+    $("loopStatus").textContent = text;
+  }
+
+  function insertLoopMarker(marker) {
+    const result = buildInsertion(marker);
+    const lines = result.value.replace(/\r/g, "").split("\n").map(l => l.trim()).filter(Boolean);
+    const startIdx = lines.findIndex(isLoopStart);
+    const endIdx = lines.findIndex(isLoopEnd);
+    if (marker === "LOOP END" && endIdx < startIdx) {
+      $("loopStatus").textContent = "„Schleife Ende“ muss nach „Schleife Anfang“ stehen – setze den Cursor weiter unten ins Script.";
+      return;
+    }
+    if (marker === "LOOP START" && endIdx >= 0 && startIdx > endIdx) {
+      $("loopStatus").textContent = "„Schleife Anfang“ muss vor „Schleife Ende“ stehen – setze den Cursor weiter oben ins Script.";
+      return;
+    }
+    insertAtCursor(marker);
+    refreshLoopDialog();
+  }
+
+  $("loopBtn").addEventListener("click", () => {
+    refreshLoopDialog();
+    openDialog("loopDialog");
+  });
+  $("loopStartBtn").addEventListener("click", () => insertLoopMarker("LOOP START"));
+  $("loopEndBtn").addEventListener("click", () => insertLoopMarker("LOOP END"));
+  $("loopRemoveBtn").addEventListener("click", () => {
+    scriptEl.value = scriptEl.value.replace(/\r/g, "").split("\n")
+      .filter(l => !isLoopStart(l) && !isLoopEnd(l)).join("\n");
+    updateLoopUI();
+    refreshLoopDialog();
+  });
+  scriptEl.addEventListener("input", updateLoopUI);
 
   /* ---------------- Touchpad / Maus ---------------- */
 
@@ -444,4 +545,5 @@
 
   setConnected(false);
   setStatus("ESP32 wird gesucht...");
+  updateLoopUI();
 })();

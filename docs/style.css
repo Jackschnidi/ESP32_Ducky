@@ -67,3 +67,10 @@ dialog small { color: #666; font-size: 12px; margin-top: -6px; }
 .xy-row input[type=number], .xy-row select { width: 100%; border: 1px solid #aaa; border-radius: 4px; padding: 9px; background: #fff; color: #202124; }
 .xy-row .inline-check { display: flex; align-items: center; gap: 7px; padding-bottom: 9px; }
 .xy-row .inline-check input { accent-color: #6750a4; width: 18px; height: 18px; }
+
+/* --- Schleife (Teil-Loop) --- */
+.action-buttons { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; }
+.action-buttons .outline-button { padding: 7px 4px; }
+.loop-actions { display: grid; gap: 6px; }
+.loop-option.disabled { opacity: .5; }
+.outline-button.active { border-color: #6750a4; color: #6750a4; background: #f6f5fa; }
